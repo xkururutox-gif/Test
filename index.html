@@ -29,62 +29,110 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-let player = { x: 3, y: 3, angle: 0 };
+let player = {
+  x: 3,
+  y: 3,
+  angle: 0,
+  speed: 0.06
+};
 
 const map = [
-  "1111111111",
-  "1000000001",
-  "1011111101",
-  "1000000101",
-  "1011100101",
-  "1000100001",
-  "1111111111"
+  "111111111111",
+  "100000000001",
+  "101111011101",
+  "100001000001",
+  "111101011101",
+  "100001000001",
+  "101111011101",
+  "100000000001",
+  "111111111111"
 ];
 
 const FOV = Math.PI / 3;
-const depth = 16;
+const depth = 20;
 const keys = {};
 
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
+function isWall(x, y) {
+  if (!map[Math.floor(y)] || !map[Math.floor(y)][Math.floor(x)]) return true;
+  return map[Math.floor(y)][Math.floor(x)] === "1";
+}
+
+function update() {
+  let moveX = 0;
+  let moveY = 0;
+
+  if (keys["w"]) {
+    moveX += Math.cos(player.angle) * player.speed;
+    moveY += Math.sin(player.angle) * player.speed;
+  }
+  if (keys["s"]) {
+    moveX -= Math.cos(player.angle) * player.speed;
+    moveY -= Math.sin(player.angle) * player.speed;
+  }
+
+  // Collision check separately for x and y (prevents clipping)
+  if (!isWall(player.x + moveX, player.y)) {
+    player.x += moveX;
+  }
+  if (!isWall(player.x, player.y + moveY)) {
+    player.y += moveY;
+  }
+
+  if (keys["a"]) player.angle -= 0.04;
+  if (keys["d"]) player.angle += 0.04;
+}
+
 function castRay(angle) {
   let distance = 0;
   while (distance < depth) {
-    let testX = Math.floor(player.x + Math.cos(angle) * distance);
-    let testY = Math.floor(player.y + Math.sin(angle) * distance);
-    if (map[testY] && map[testY][testX] === "1") return distance;
-    distance += 0.05;
+    let testX = player.x + Math.cos(angle) * distance;
+    let testY = player.y + Math.sin(angle) * distance;
+
+    if (isWall(testX, testY)) {
+      return distance;
+    }
+    distance += 0.02;
   }
   return depth;
 }
 
-function update() {
-  if (keys["w"]) {
-    player.x += Math.cos(player.angle) * 0.05;
-    player.y += Math.sin(player.angle) * 0.05;
-  }
-  if (keys["s"]) {
-    player.x -= Math.cos(player.angle) * 0.05;
-    player.y -= Math.sin(player.angle) * 0.05;
-  }
-  if (keys["a"]) player.angle -= 0.05;
-  if (keys["d"]) player.angle += 0.05;
-}
-
 function draw() {
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Sky
+  ctx.fillStyle = "#100014";
+  ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
+
+  // Floor
+  ctx.fillStyle = "#1a001f";
+  ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
 
   for (let x = 0; x < canvas.width; x++) {
-    const rayAngle = player.angle - FOV/2 + (x / canvas.width) * FOV;
+    const rayAngle = player.angle - FOV / 2 + (x / canvas.width) * FOV;
     const distance = castRay(rayAngle);
 
-    const wallHeight = canvas.height / distance;
-    const shade = 255 - Math.min(distance * 15, 200);
+    const correctedDist = distance * Math.cos(rayAngle - player.angle);
+    const wallHeight = canvas.height / correctedDist;
 
-    ctx.fillStyle = `rgb(${shade},0,${shade})`;
-    ctx.fillRect(x, canvas.height/2 - wallHeight/2, 1, wallHeight);
+    // Better shading
+    const brightness = Math.max(0, 255 - correctedDist * 20);
+    const textureStripe = Math.floor((player.x + player.y) * 5) % 2;
+
+    let r = brightness;
+    let g = 0;
+    let b = textureStripe ? brightness : brightness * 0.7;
+
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+
+    ctx.fillRect(
+      x,
+      canvas.height / 2 - wallHeight / 2,
+      1,
+      wallHeight
+    );
   }
 }
 
