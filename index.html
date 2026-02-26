@@ -2,148 +2,165 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Kurayami DOOM</title>
+<title>Mini DOOM</title>
 <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: black;
-  }
-  canvas {
-    display: block;
-  }
+  body { margin: 0; overflow: hidden; background: black; }
+  canvas { display: block; }
 </style>
 </head>
 <body>
-
-<canvas id="doom"></canvas>
+<canvas id="game"></canvas>
 
 <script>
-const canvas = document.getElementById("doom");
+const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener("resize", resize);
-resize();
-
-let player = {
-  x: 3,
-  y: 3,
-  angle: 0,
-  speed: 0.06
-};
-
-const map = [
-  "111111111111",
-  "100000000001",
-  "101111011101",
-  "100001000001",
-  "111101011101",
-  "100001000001",
-  "101111011101",
-  "100000000001",
-  "111111111111"
-];
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 const FOV = Math.PI / 3;
 const depth = 20;
+const speed = 0.08;
+
+const map = [
+  "1111111111111111",
+  "1000000000000001",
+  "1011110111111101",
+  "1000010000000101",
+  "1111010111110101",
+  "1000010100010101",
+  "1011110101110101",
+  "1000000001000001",
+  "1011111111011101",
+  "1000000000000001",
+  "1111111111111111"
+];
+
+const player = {
+  x: 3,
+  y: 3,
+  angle: 0
+};
+
 const keys = {};
 
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-function isWall(x, y) {
-  if (!map[Math.floor(y)] || !map[Math.floor(y)][Math.floor(x)]) return true;
-  return map[Math.floor(y)][Math.floor(x)] === "1";
-}
+canvas.addEventListener("click", () => {
+  canvas.requestPointerLock();
+});
 
-function update() {
+document.addEventListener("mousemove", e => {
+  if (document.pointerLockElement === canvas) {
+    player.angle += e.movementX * 0.002;
+  }
+});
+
+const wallTexture = new Image();
+wallTexture.crossOrigin = "Kuru";
+wallTexture.src = "https://cdn.discordapp.com/attachments/853800758033252362/1476451550602858568/Kuru.png?ex=69a12c28&is=699fdaa8&hm=5f6e0076010359dee3bddad94f0281c9bef94f57036105d6f3c04cc0e57d5ac1&"; // or use full URL
+
+function movePlayer() {
   let moveX = 0;
   let moveY = 0;
 
   if (keys["w"]) {
-    moveX += Math.cos(player.angle) * player.speed;
-    moveY += Math.sin(player.angle) * player.speed;
+    moveX += Math.cos(player.angle) * speed;
+    moveY += Math.sin(player.angle) * speed;
   }
   if (keys["s"]) {
-    moveX -= Math.cos(player.angle) * player.speed;
-    moveY -= Math.sin(player.angle) * player.speed;
+    moveX -= Math.cos(player.angle) * speed;
+    moveY -= Math.sin(player.angle) * speed;
+  }
+  if (keys["a"]) {
+    moveX += Math.cos(player.angle - Math.PI/2) * speed;
+    moveY += Math.sin(player.angle - Math.PI/2) * speed;
+  }
+  if (keys["d"]) {
+    moveX += Math.cos(player.angle + Math.PI/2) * speed;
+    moveY += Math.sin(player.angle + Math.PI/2) * speed;
   }
 
-  // Collision check separately for x and y (prevents clipping)
-  if (!isWall(player.x + moveX, player.y)) {
-    player.x += moveX;
-  }
-  if (!isWall(player.x, player.y + moveY)) {
-    player.y += moveY;
-  }
+  const newX = player.x + moveX;
+  const newY = player.y + moveY;
 
-  if (keys["a"]) player.angle -= 0.04;
-  if (keys["d"]) player.angle += 0.04;
+  if (map[Math.floor(player.y)][Math.floor(newX)] === "0") {
+    player.x = newX;
+  }
+  if (map[Math.floor(newY)][Math.floor(player.x)] === "0") {
+    player.y = newY;
+  }
 }
 
-function castRay(angle) {
-  let distance = 0;
-  while (distance < depth) {
-    let testX = player.x + Math.cos(angle) * distance;
-    let testY = player.y + Math.sin(angle) * distance;
-
-    if (isWall(testX, testY)) {
-      return distance;
-    }
-    distance += 0.02;
-  }
-  return depth;
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Sky
-  ctx.fillStyle = "#100014";
-  ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
-
-  // Floor
-  ctx.fillStyle = "#1a001f";
-  ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
-
+function castRays() {
   for (let x = 0; x < canvas.width; x++) {
-    const rayAngle = player.angle - FOV / 2 + (x / canvas.width) * FOV;
-    const distance = castRay(rayAngle);
+
+    const rayAngle = player.angle - FOV/2 + (x / canvas.width) * FOV;
+
+    let distance = 0;
+    let hit = false;
+
+    while (!hit && distance < depth) {
+      distance += 0.02;
+
+      const rayX = player.x + Math.cos(rayAngle) * distance;
+      const rayY = player.y + Math.sin(rayAngle) * distance;
+
+      if (map[Math.floor(rayY)] &&
+          map[Math.floor(rayY)][Math.floor(rayX)] === "1") {
+        hit = true;
+      }
+    }
 
     const correctedDist = distance * Math.cos(rayAngle - player.angle);
-    const wallHeight = canvas.height / correctedDist;
+    const safeDist = Math.max(correctedDist, 0.0001);
+    const wallHeight = canvas.height / safeDist;
 
-    // Better shading
-    const brightness = Math.max(0, 255 - correctedDist * 20);
-    const textureStripe = Math.floor((player.x + player.y) * 5) % 2;
+    const hitX = player.x + Math.cos(rayAngle) * distance;
+    const texX = Math.floor((hitX % 1) * wallTexture.width);
 
-    let r = brightness;
-    let g = 0;
-    let b = textureStripe ? brightness : brightness * 0.7;
+    if (wallTexture.complete) {
+      ctx.drawImage(
+        wallTexture,
+        texX, 0, 1, wallTexture.height,
+        x,
+        canvas.height/2 - wallHeight/2,
+        1,
+        wallHeight
+      );
 
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
-
-    ctx.fillRect(
-      x,
-      canvas.height / 2 - wallHeight / 2,
-      1,
-      wallHeight
-    );
+      ctx.fillStyle = `rgba(0,0,0,${correctedDist / depth})`;
+      ctx.fillRect(
+        x,
+        canvas.height/2 - wallHeight/2,
+        1,
+        wallHeight
+      );
+    }
   }
+}
+
+function drawFloorAndCeiling() {
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 0, canvas.width, canvas.height/2);
+
+  ctx.fillStyle = "#222";
+  ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
 }
 
 function loop() {
-  update();
-  draw();
+  movePlayer();
+
+  drawFloorAndCeiling();
+  castRays();
+
   requestAnimationFrame(loop);
 }
 
-loop();
+wallTexture.onload = () => {
+  loop();
+};
 </script>
-
 </body>
 </html>
