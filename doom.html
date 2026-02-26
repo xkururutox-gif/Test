@@ -1,19 +1,36 @@
-<div id="doom-container" style="position:relative;width:100%;height:400px;border-radius:16px;overflow:hidden;">
-  <canvas id="doom-canvas"></canvas>
-</div>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Kurayami DOOM</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas {
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="doom"></canvas>
 
 <script>
-const canvas = document.getElementById("doom-canvas");
+const canvas = document.getElementById("doom");
 const ctx = canvas.getContext("2d");
 
 function resize() {
-  canvas.width = canvas.parentElement.clientWidth;
-  canvas.height = canvas.parentElement.clientHeight;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 }
 window.addEventListener("resize", resize);
 resize();
 
 let player = { x: 3, y: 3, angle: 0 };
+
 const map = [
   "1111111111",
   "1000000001",
@@ -36,9 +53,7 @@ function castRay(angle) {
   while (distance < depth) {
     let testX = Math.floor(player.x + Math.cos(angle) * distance);
     let testY = Math.floor(player.y + Math.sin(angle) * distance);
-    if (map[testY] && map[testY][testX] === "1") {
-      return distance;
-    }
+    if (map[testY] && map[testY][testX] === "1") return distance;
     distance += 0.05;
   }
   return depth;
@@ -81,3 +96,6 @@ function loop() {
 
 loop();
 </script>
+
+</body>
+</html>
